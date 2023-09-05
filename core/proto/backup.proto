@@ -141,6 +141,8 @@ message CreateBackupRequest {
   repeated string collection_names = 3;
   // async or not
   bool async = 4;
+  // force backup skip flush, Should make sure data has been stored into disk when using it
+  bool force = 5;
 }
 
 /**
