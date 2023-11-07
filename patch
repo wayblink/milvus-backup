@@ -1,0 +1,65 @@
+diff --git a/configs/backup.yaml b/configs/backup.yaml
+index 4daa3ce..396a7ad 100644
+--- a/configs/backup.yaml
++++ b/configs/backup.yaml
+@@ -49,6 +49,7 @@ backup:
+     # which means if you set backup.parallelism = 2 backup.copydata.parallelism = 100, there will be 200 copy executing at the same time.
+     # reduce it if blocks your storage's network bandwidth
+     parallelism: 128
++  keepTempFiles: true
+ 
+ restore:
+   # Collection level parallelism to restore
+diff --git a/core/backup_impl_restore_backup.go b/core/backup_impl_restore_backup.go
+index 71a0317..0adf2f6 100644
+--- a/core/backup_impl_restore_backup.go
++++ b/core/backup_impl_restore_backup.go
+@@ -453,7 +453,7 @@ func (b *BackupContext) executeRestoreCollectionTask(ctx context.Context, backup
+ 	isSameBucket := b.milvusBucketName == backupBucketName
+ 	// clean the temporary file
+ 	defer func() {
+-		if !isSameBucket {
++		if !isSameBucket && !b.params.BackupCfg.KeepTempFiles {
+ 			log.Info("Delete temporary file", zap.String("dir", tempDir))
+ 			err := b.getStorageClient().RemoveWithPrefix(ctx, b.milvusBucketName, tempDir)
+ 			if err != nil {
+@@ -527,6 +527,7 @@ func (b *BackupContext) restorePartition(ctx context.Context, targetDBName, targ
+ 				if file == "" {
+ 					realFiles[i] = file
+ 				} else {
++					log.Debug("Copy temporary restore file", zap.String("from", file), zap.String("to", tempDir+file))
+ 					err := b.getStorageClient().Copy(ctx, backupBucketName, b.milvusBucketName, file, tempDir+file)
+ 					if err != nil {
+ 						log.Error("fail to copy backup date from backup bucket to restore target milvus bucket", zap.Error(err))
+diff --git a/core/paramtable/params.go b/core/paramtable/params.go
+index fea3c5c..57ff474 100644
+--- a/core/paramtable/params.go
++++ b/core/paramtable/params.go
+@@ -37,6 +37,7 @@ type BackupConfig struct {
+ 	BackupParallelism         int
+ 	RestoreParallelism        int
+ 	BackupCopyDataParallelism int
++	KeepTempFiles             bool
+ }
+ 
+ func (p *BackupConfig) init(base *BaseTable) {
+@@ -46,6 +47,7 @@ func (p *BackupConfig) init(base *BaseTable) {
+ 	p.initBackupParallelism()
+ 	p.initRestoreParallelism()
+ 	p.initBackupCopyDataParallelism()
++	p.initKeepTempFiles()
+ }
+ 
+ func (p *BackupConfig) initMaxSegmentGroupSize() {
+@@ -71,6 +73,11 @@ func (p *BackupConfig) initBackupCopyDataParallelism() {
+ 	p.BackupCopyDataParallelism = size
+ }
+ 
++func (p *BackupConfig) initKeepTempFiles() {
++	keepTempFiles := p.Base.LoadWithDefault("backup.keepTempFiles", "false")
++	p.KeepTempFiles, _ = strconv.ParseBool(keepTempFiles)
++}
++
+ type MilvusConfig struct {
+ 	Base *BaseTable
+ 

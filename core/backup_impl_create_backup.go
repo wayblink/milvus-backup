@@ -727,7 +727,7 @@ func (b *BackupContext) copySegments(ctx context.Context, segments []*backuppb.S
 						log.Error("Binlog file not exist",
 							zap.Error(err),
 							zap.String("file", binlog.GetLogPath()))
-						return err
+						return errors.New("Binlog file not exist " + binlog.GetLogPath())
 					}
 					err = b.getStorageClient().Copy(ctx, b.milvusBucketName, b.backupBucketName, binlog.GetLogPath(), targetPath)
 					if err != nil {
