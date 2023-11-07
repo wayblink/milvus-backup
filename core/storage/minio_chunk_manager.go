@@ -404,6 +404,9 @@ func (mcm *MinioChunkManager) Copy(ctx context.Context, fromBucketName string, t
 		dstObjectKey := strings.Replace(objectkey, fromPath, toPath, 1)
 		dst := minio.CopyDestOptions{Bucket: toBucketName, Object: dstObjectKey}
 
+		log.Debug("copyObject error",
+			zap.String("srcObjectKey", objectkey),
+			zap.String("dstObjectKey", dstObjectKey))
 		_, err = mcm.Client.CopyObject(ctx, dst, src)
 		if err != nil {
 			log.Error("copyObject error",
