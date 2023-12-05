@@ -375,17 +375,17 @@ func (b *BackupContext) backupCollection(ctx context.Context, backupInfo *backup
 		//collectionBackup.BackupTimestamp = utils.ComposeTS(timeOfSeal, 0)
 		collectionBackup.BackupPhysicalTimestamp = uint64(timeOfSeal)
 		channelCheckpoints := make(map[string]string, 0)
-		var minChannelBackupTimeStamp uint64 = 0
+		var maxChannelBackupTimeStamp uint64 = 0
 		for vch, checkpoint := range channelCPs {
 			channelCheckpoints[vch] = utils.Base64MsgPosition(&checkpoint)
-			if minChannelBackupTimeStamp == 0 {
-				minChannelBackupTimeStamp = checkpoint.GetTimestamp()
-			} else if minChannelBackupTimeStamp > checkpoint.GetTimestamp() {
-				minChannelBackupTimeStamp = checkpoint.GetTimestamp()
+			if maxChannelBackupTimeStamp == 0 {
+				maxChannelBackupTimeStamp = checkpoint.GetTimestamp()
+			} else if maxChannelBackupTimeStamp < checkpoint.GetTimestamp() {
+				maxChannelBackupTimeStamp = checkpoint.GetTimestamp()
 			}
 		}
 		collectionBackup.ChannelCheckpoints = channelCheckpoints
-		collectionBackup.BackupTimestamp = minChannelBackupTimeStamp
+		collectionBackup.BackupTimestamp = maxChannelBackupTimeStamp
 		log.Info("flush segments",
 			zap.String("collectionName", collectionBackup.GetCollectionName()),
 			zap.Int64s("newSealedSegmentIDs", newSealedSegmentIDs),
