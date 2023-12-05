@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -635,11 +636,27 @@ func (b *BackupContext) executeCreateBackup(ctx context.Context, request *backup
 	log.Debug("partition meta", zap.String("value", string(output.PartitionMetaBytes)))
 	log.Debug("segment meta", zap.String("value", string(output.SegmentMetaBytes)))
 
+	collectionBackups := backupInfo.GetCollectionBackups()
+	collectionPositions := make(map[string][]*backuppb.ChannelPosition, 0)
+	for _, collectionBackup := range collectionBackups {
+		collectionCPs := make([]*backuppb.ChannelPosition, 0)
+		for name, position := range collectionBackup.GetChannelCheckpoints() {
+			collectionCPs = append(collectionCPs, &backuppb.ChannelPosition{
+				Name:     name,
+				Position: position,
+			})
+		}
+		collectionPositions[collectionBackup.GetCollectionName()] = collectionCPs
+	}
+	channelCPsBytes, err := json.Marshal(collectionPositions)
+	log.Debug("channel cp meta", zap.String("value", string(channelCPsBytes)))
+
 	b.getStorageClient().Write(ctx, b.backupBucketName, BackupMetaPath(b.backupRootPath, backupInfo.GetName()), output.BackupMetaBytes)
 	b.getStorageClient().Write(ctx, b.backupBucketName, CollectionMetaPath(b.backupRootPath, backupInfo.GetName()), output.CollectionMetaBytes)
 	b.getStorageClient().Write(ctx, b.backupBucketName, PartitionMetaPath(b.backupRootPath, backupInfo.GetName()), output.PartitionMetaBytes)
 	b.getStorageClient().Write(ctx, b.backupBucketName, SegmentMetaPath(b.backupRootPath, backupInfo.GetName()), output.SegmentMetaBytes)
 	b.getStorageClient().Write(ctx, b.backupBucketName, FullMetaPath(b.backupRootPath, backupInfo.GetName()), output.FullMetaBytes)
+	b.getStorageClient().Write(ctx, b.backupBucketName, ChannelCPMetaPath(b.backupRootPath, backupInfo.GetName()), channelCPsBytes)
 
 	log.Info("finish executeCreateBackup",
 		zap.String("requestId", request.GetRequestId()),

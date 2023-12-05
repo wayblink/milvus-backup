@@ -439,11 +439,8 @@ message MsgPosition {
   uint64 timestamp = 4;
 }
 
-//message ChannelCps {
-//  string name = 1;
-//  string position = 2;
-//}
-//
-//message CollectionChannelCps {
-//  repeated ChannelCps  = 1;
-//}
+
+message ChannelPosition {
+  string name = 1;
+  string position = 2;
+}
