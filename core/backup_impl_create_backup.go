@@ -648,9 +648,10 @@ func (b *BackupContext) executeCreateBackup(ctx context.Context, request *backup
 	collectionPositions := make(map[string][]*backuppb.ChannelPosition, 0)
 	for _, collectionBackup := range collectionBackups {
 		collectionCPs := make([]*backuppb.ChannelPosition, 0)
-		for name, position := range collectionBackup.GetChannelCheckpoints() {
+		for vCh, position := range collectionBackup.GetChannelCheckpoints() {
+			pCh := strings.Split(vCh, "_")[0]
 			collectionCPs = append(collectionCPs, &backuppb.ChannelPosition{
-				Name:     name,
+				Name:     pCh,
 				Position: position,
 			})
 		}
