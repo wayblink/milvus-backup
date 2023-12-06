@@ -51,9 +51,8 @@ backup:
     parallelism: 128
   keepTempFiles: false
 
-parallelism:
+restore:
   # Collection level parallelism to restore
   # Only change it > 1 when you have more than one datanode.
   # Because the max parallelism of Milvus bulkinsert is equal to datanodes' number.
-  restore: 2
-  bulkinsert: 10
+  parallelism: 2

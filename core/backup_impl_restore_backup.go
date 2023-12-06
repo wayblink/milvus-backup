@@ -554,22 +554,41 @@ func (b *BackupContext) restorePartition(ctx context.Context, targetDBName, targ
 		return nil
 	}
 
-	jobIds := make([]int64, 0)
 	if task.GetMetaOnly() {
 		task.Progress = 100
 	} else {
 		groupIds := collectGroupIdsFromSegments(partitionBackup.GetSegmentBackups())
 		if len(groupIds) == 1 && groupIds[0] == 0 {
-			job := func(ctx context.Context) error {
-				// backward compatible old backup without group id
-				files, err := b.getBackupPartitionPaths(ctx, backupBucketName, backupPath, partitionBackup)
+			// backward compatible old backup without group id
+			files, err := b.getBackupPartitionPaths(ctx, backupBucketName, backupPath, partitionBackup)
+			if err != nil {
+				log.Error("fail to get partition backup binlog files",
+					zap.Error(err),
+					zap.String("backupCollectionName", task.GetCollBackup().GetCollectionName()),
+					zap.String("targetCollectionName", targetCollectionName),
+					zap.String("partition", partitionBackup.GetPartitionName()))
+				return task, err
+			}
+			err = copyAndBulkInsert(files)
+			if err != nil {
+				log.Error("fail to (copy and) bulkinsert data",
+					zap.Error(err),
+					zap.String("backupCollectionName", task.GetCollBackup().GetCollectionName()),
+					zap.String("targetCollectionName", targetCollectionName),
+					zap.String("partition", partitionBackup.GetPartitionName()))
+				return task, err
+			}
+		} else {
+			// bulk insert by segment groups
+			for _, groupId := range groupIds {
+				files, err := b.getBackupPartitionPathsWithGroupID(ctx, backupBucketName, backupPath, partitionBackup, groupId)
 				if err != nil {
 					log.Error("fail to get partition backup binlog files",
 						zap.Error(err),
 						zap.String("backupCollectionName", task.GetCollBackup().GetCollectionName()),
 						zap.String("targetCollectionName", targetCollectionName),
 						zap.String("partition", partitionBackup.GetPartitionName()))
-					return err
+					return task, err
 				}
 				err = copyAndBulkInsert(files)
 				if err != nil {
@@ -578,38 +597,8 @@ func (b *BackupContext) restorePartition(ctx context.Context, targetDBName, targ
 						zap.String("backupCollectionName", task.GetCollBackup().GetCollectionName()),
 						zap.String("targetCollectionName", targetCollectionName),
 						zap.String("partition", partitionBackup.GetPartitionName()))
-					return err
+					return task, err
 				}
-				return nil
-			}
-			jobId := b.getBulkinsertWorkerPool().SubmitWithId(job)
-			jobIds = append(jobIds, jobId)
-		} else {
-			// bulk insert by segment groups
-			for _, groupId := range groupIds {
-				job := func(ctx context.Context) error {
-					files, err := b.getBackupPartitionPathsWithGroupID(ctx, backupBucketName, backupPath, partitionBackup, groupId)
-					if err != nil {
-						log.Error("fail to get partition backup binlog files",
-							zap.Error(err),
-							zap.String("backupCollectionName", task.GetCollBackup().GetCollectionName()),
-							zap.String("targetCollectionName", targetCollectionName),
-							zap.String("partition", partitionBackup.GetPartitionName()))
-						return err
-					}
-					err = copyAndBulkInsert(files)
-					if err != nil {
-						log.Error("fail to (copy and) bulkinsert data",
-							zap.Error(err),
-							zap.String("backupCollectionName", task.GetCollBackup().GetCollectionName()),
-							zap.String("targetCollectionName", targetCollectionName),
-							zap.String("partition", partitionBackup.GetPartitionName()))
-						return err
-					}
-					return nil
-				}
-				jobId := b.getBulkinsertWorkerPool().SubmitWithId(job)
-				jobIds = append(jobIds, jobId)
 			}
 		}
 		task.RestoredSize = task.RestoredSize + partitionBackup.GetSize()
@@ -619,8 +608,7 @@ func (b *BackupContext) restorePartition(ctx context.Context, targetDBName, targ
 			task.Progress = int32(100 * task.RestoredSize / task.ToRestoreSize)
 		}
 	}
-	err = b.getBulkinsertWorkerPool().WaitJobs(jobIds)
-	return task, err
+	return task, nil
 }
 
 func collectGroupIdsFromSegments(segments []*backuppb.SegmentBackupInfo) []int64 {
