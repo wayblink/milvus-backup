@@ -15,6 +15,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/json-iterator/go v1.1.12
 	github.com/lingdor/stackerror v0.0.0-20191119040541-976d8885ed76
+	github.com/milvus-io/milvus-proto/go-api/v2 v2.3.2
 	github.com/milvus-io/milvus-sdk-go/v2 v2.3.0
 	github.com/minio/minio-go/v7 v7.0.17
 	github.com/pkg/errors v0.9.1
@@ -77,7 +78,6 @@ require (
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
-	github.com/milvus-io/milvus-proto/go-api/v2 v2.3.2 // indirect
 	github.com/minio/md5-simd v1.1.0 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -117,5 +117,5 @@ require (
 
 replace (
 	github.com/milvus-io/milvus-proto/go-api/v2 => github.com/wayblink/milvus-proto/go-api/v2 v2.0.0-20231129093819-30d8c2ff887e
-	github.com/milvus-io/milvus-sdk-go/v2 => github.com/wayblink/milvus-sdk-go/v2 v2.3.0-beta4.0.20231201113142-5ed2244fb0cc
+	github.com/milvus-io/milvus-sdk-go/v2 => github.com/wayblink/milvus-sdk-go/v2 v2.3.0-beta4.0.20231211114658-5ed5a347b49f
 )
