@@ -519,29 +519,29 @@ func (b *BackupContext) restorePartition(ctx context.Context, targetDBName, targ
 
 	// bulk insert
 	copyAndBulkInsert := func(files []string) error {
-		realFiles := make([]string, len(files))
-		// if milvus bucket and backup bucket are not the same, should copy the data first
-		if !isSameBucket {
-			log.Info("milvus bucket and backup bucket are not the same, copy the data first", zap.Strings("files", files))
-			for i, file := range files {
-				// empty delta file, no need to copy
-				if file == "" {
-					realFiles[i] = file
-				} else {
-					log.Debug("Copy temporary restore file", zap.String("from", file), zap.String("to", tempDir+file))
-					err := b.getStorageClient().Copy(ctx, backupBucketName, b.milvusBucketName, file, tempDir+file)
-					if err != nil {
-						log.Error("fail to copy backup date from backup bucket to restore target milvus bucket", zap.Error(err))
-						return err
-					}
-					realFiles[i] = tempDir + file
-				}
-			}
-		} else {
-			realFiles = files
-		}
+		//realFiles := make([]string, len(files))
+		//// if milvus bucket and backup bucket are not the same, should copy the data first
+		//if !isSameBucket {
+		//	log.Info("milvus bucket and backup bucket are not the same, copy the data first", zap.Strings("files", files))
+		//	for i, file := range files {
+		//		// empty delta file, no need to copy
+		//		if file == "" {
+		//			realFiles[i] = file
+		//		} else {
+		//			log.Debug("Copy temporary restore file", zap.String("from", file), zap.String("to", tempDir+file))
+		//			err := b.getStorageClient().Copy(ctx, backupBucketName, b.milvusBucketName, file, tempDir+file)
+		//			if err != nil {
+		//				log.Error("fail to copy backup date from backup bucket to restore target milvus bucket", zap.Error(err))
+		//				return err
+		//			}
+		//			realFiles[i] = tempDir + file
+		//		}
+		//	}
+		//} else {
+		//	realFiles = files
+		//}
 
-		err = b.executeBulkInsert(ctx, targetDBName, targetCollectionName, partitionBackup.GetPartitionName(), realFiles, int64(task.GetCollBackup().BackupTimestamp))
+		err = b.executeBulkInsert(ctx, targetDBName, targetCollectionName, partitionBackup.GetPartitionName(), files, int64(task.GetCollBackup().BackupTimestamp))
 		if err != nil {
 			log.Error("fail to bulk insert to partition",
 				zap.String("backupCollectionName", task.GetCollBackup().GetCollectionName()),
@@ -632,10 +632,25 @@ func (b *BackupContext) executeBulkInsert(ctx context.Context, db, coll string, 
 		zap.Int64("endTime", endTime))
 	var taskId int64
 	var err error
+
+	endTime = 0
+	opts := []gomilvus.BulkInsertOption{
+		gomilvus.IsBackup(),
+		gomilvus.WithAccessKeyID(b.params.MinioCfg.BackupAccessKeyID),
+		gomilvus.WithSecretAccessKeyID(b.params.MinioCfg.BackupSecretAccessKey),
+		gomilvus.WithBucket(b.params.MinioCfg.BackupBucketName),
+		gomilvus.WithCloudProvider(b.params.MinioCfg.BackupCloudProvider),
+		gomilvus.WithRootPath(b.params.MinioCfg.BackupRootPath),
+		gomilvus.WithStorageType(b.params.MinioCfg.BackupStorageType),
+		gomilvus.WithAddress(b.params.MinioCfg.BackupAddress),
+		gomilvus.WithUseSSL(b.params.MinioCfg.BackupUseSSL),
+	}
+
 	if endTime == 0 {
-		taskId, err = b.getMilvusClient().BulkInsert(ctx, db, coll, partition, files, gomilvus.IsBackup())
+		taskId, err = b.getMilvusClient().BulkInsert(ctx, db, coll, partition, files, opts...)
 	} else {
-		taskId, err = b.getMilvusClient().BulkInsert(ctx, db, coll, partition, files, gomilvus.IsBackup(), gomilvus.WithEndTs(endTime))
+		opts = append(opts, gomilvus.WithEndTs(endTime))
+		taskId, err = b.getMilvusClient().BulkInsert(ctx, db, coll, partition, files, opts...)
 	}
 	if err != nil {
 		log.Error("fail to bulk insert",

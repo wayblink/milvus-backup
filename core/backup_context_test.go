@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+
 	"github.com/zilliztech/milvus-backup/core/paramtable"
 	"github.com/zilliztech/milvus-backup/core/proto/backuppb"
 	"github.com/zilliztech/milvus-backup/core/utils"
 	"github.com/zilliztech/milvus-backup/internal/log"
-	"go.uber.org/zap"
 )
 
 func TestCreateBackup(t *testing.T) {
@@ -25,7 +26,7 @@ func TestCreateBackup(t *testing.T) {
 		//CollectionNames: []string{"hello_milvus", "hello_milvus2"},
 		DbCollections: utils.WrapDBCollections(""),
 	}
-	backup.CreateBackup(context, req)
+	backup.CreateBackup(context, req, false)
 }
 
 func TestListBackups(t *testing.T) {
@@ -96,7 +97,7 @@ func TestCreateBackupWithNoName(t *testing.T) {
 	req := &backuppb.CreateBackupRequest{
 		BackupName: randBackupName,
 	}
-	resp := backup.CreateBackup(context, req)
+	resp := backup.CreateBackup(context, req, false)
 	assert.Equal(t, backuppb.ResponseCode_Success, resp.GetCode())
 
 	// clean
@@ -117,7 +118,7 @@ func TestCreateBackupWithUnexistCollection(t *testing.T) {
 		BackupName:      randBackupName,
 		CollectionNames: []string{"not_exist"},
 	}
-	resp := backup.CreateBackup(context, req)
+	resp := backup.CreateBackup(context, req, false)
 	assert.Equal(t, backuppb.ResponseCode_Fail, resp.GetCode())
 	assert.Equal(t, "request backup collection does not exist: not_exist", resp.GetMsg())
 
@@ -138,13 +139,13 @@ func TestCreateBackupWithDuplicateName(t *testing.T) {
 	req := &backuppb.CreateBackupRequest{
 		BackupName: randBackupName,
 	}
-	resp := backup.CreateBackup(context, req)
+	resp := backup.CreateBackup(context, req, false)
 	assert.Equal(t, backuppb.ResponseCode_Success, resp.GetCode())
 
 	req2 := &backuppb.CreateBackupRequest{
 		BackupName: randBackupName,
 	}
-	resp2 := backup.CreateBackup(context, req2)
+	resp2 := backup.CreateBackup(context, req2, false)
 	assert.Equal(t, backuppb.ResponseCode_Fail, resp2.GetCode())
 	assert.Equal(t, fmt.Sprintf("backup already exist with the name: %s", req2.GetBackupName()), resp2.GetMsg())
 
@@ -165,7 +166,7 @@ func TestCreateBackupWithIllegalName(t *testing.T) {
 	req := &backuppb.CreateBackupRequest{
 		BackupName: randBackupName,
 	}
-	resp := backup.CreateBackup(context, req)
+	resp := backup.CreateBackup(context, req, false)
 	assert.Equal(t, backuppb.ResponseCode_Fail, resp.GetCode())
 
 	// clean
@@ -185,7 +186,7 @@ func TestGetBackupAfterCreate(t *testing.T) {
 	req := &backuppb.CreateBackupRequest{
 		BackupName: randBackupName,
 	}
-	resp := backupContext.CreateBackup(context, req)
+	resp := backupContext.CreateBackup(context, req, false)
 	assert.Equal(t, backuppb.ResponseCode_Success, resp.GetCode())
 
 	backup := backupContext.GetBackup(context, &backuppb.GetBackupRequest{
@@ -215,7 +216,7 @@ func TestGetBackupFaultBackup(t *testing.T) {
 	req := &backuppb.CreateBackupRequest{
 		BackupName: randBackupName,
 	}
-	resp := backupContext.CreateBackup(context, req)
+	resp := backupContext.CreateBackup(context, req, false)
 	assert.Equal(t, backuppb.ResponseCode_Success, resp.GetCode())
 
 	backupContext.getStorageClient().RemoveWithPrefix(context, params.MinioCfg.BackupBucketName, BackupMetaPath(params.MinioCfg.BackupRootPath, resp.GetData().GetName()))
@@ -272,7 +273,7 @@ func TestCreateAndRestoreBackup(t *testing.T) {
 	req := &backuppb.CreateBackupRequest{
 		BackupName: randBackupName,
 	}
-	resp := backup.CreateBackup(context, req)
+	resp := backup.CreateBackup(context, req, false)
 	assert.Equal(t, backuppb.ResponseCode_Success, resp.GetCode())
 
 	getReq := &backuppb.GetBackupRequest{

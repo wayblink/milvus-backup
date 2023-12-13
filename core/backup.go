@@ -8,7 +8,7 @@ import (
 
 type Backup interface {
 	// Create backuppb
-	CreateBackup(context.Context, *backuppb.CreateBackupRequest) *backuppb.BackupInfoResponse
+	CreateBackup(context.Context, *backuppb.CreateBackupRequest, bool) *backuppb.BackupInfoResponse
 	// Get backuppb with the chosen name
 	GetBackup(context.Context, *backuppb.GetBackupRequest) *backuppb.BackupInfoResponse
 	// List backups that contains the given collection name, if collection is not given, return all backups in the cluster

@@ -176,6 +176,11 @@ type MinioConfig struct {
 	BackupSecretAccessKey string
 	BackupBucketName      string
 	BackupRootPath        string
+	BackupCloudProvider   string
+	BackupAddress         string
+	BackupPort            string
+	BackupUseSSL          bool
+	BackupStorageType     string
 
 	StorageType string
 }
@@ -199,6 +204,11 @@ func (p *MinioConfig) init(base *BaseTable) {
 	p.initBackupSecretAccessKey()
 	p.initBackupBucketName()
 	p.initBackupRootPath()
+	p.initBackCloudProvider()
+	p.initBackupAddress()
+	p.initBackupPort()
+	p.initBackupUseSSL()
+	p.initBackupStorageType()
 }
 
 func (p *MinioConfig) initAddress() {
@@ -275,6 +285,31 @@ func (p *MinioConfig) initBackupBucketName() {
 func (p *MinioConfig) initBackupRootPath() {
 	rootPath := p.Base.LoadWithDefault("minio.backupRootPath", DefaultMinioBackupRootPath)
 	p.BackupRootPath = rootPath
+}
+
+func (p *MinioConfig) initBackCloudProvider() {
+	p.BackupCloudProvider = p.Base.LoadWithDefault("minio.backupCloudProvider", DefaultMinioCloudProvider)
+}
+
+func (p *MinioConfig) initBackupAddress() {
+	p.BackupAddress = p.Base.LoadWithDefault("minio.backupAddress", DefaultMinioAddress)
+}
+
+func (p *MinioConfig) initBackupPort() {
+	p.BackupPort = p.Base.LoadWithDefault("minio.backupPort", DefaultMinioPort)
+}
+
+func (p *MinioConfig) initBackupUseSSL() {
+	backupUseSSL := p.Base.LoadWithDefault("minio.backupUseSSL", DefaultMinioUseSSL)
+	var err error
+	p.BackupUseSSL, err = strconv.ParseBool(backupUseSSL)
+	if err != nil {
+		panic("parse bool backupUseSSL:" + err.Error())
+	}
+}
+
+func (p *MinioConfig) initBackupStorageType() {
+	p.BackupStorageType = p.Base.LoadWithDefault("minio.backupStorageType", DefaultStorageType)
 }
 
 func (p *MinioConfig) initStorageType() {

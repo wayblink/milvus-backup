@@ -5,6 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ghodss/yaml"
+	"html"
+	"io"
+	"text/template"
+
+	"github.com/zilliztech/milvus-cdc/server/model"
+	"github.com/zilliztech/milvus-cdc/server/model/request"
+
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,7 +30,7 @@ import (
 	"github.com/zilliztech/milvus-backup/internal/log"
 )
 
-func (b *BackupContext) CreateBackup(ctx context.Context, request *backuppb.CreateBackupRequest) *backuppb.BackupInfoResponse {
+func (b *BackupContext) CreateBackup(ctx context.Context, request *backuppb.CreateBackupRequest, createCDCTaskPos bool) *backuppb.BackupInfoResponse {
 	if request.GetRequestId() == "" {
 		request.RequestId = utils.UUID()
 	}
@@ -95,7 +104,7 @@ func (b *BackupContext) CreateBackup(ctx context.Context, request *backuppb.Crea
 	b.backupNameIdDict.Store(name, request.GetRequestId())
 
 	if request.Async {
-		go b.executeCreateBackup(ctx, request, backup)
+		go b.executeCreateBackup(ctx, request, backup, createCDCTaskPos)
 		asyncResp := &backuppb.BackupInfoResponse{
 			RequestId: request.GetRequestId(),
 			Code:      backuppb.ResponseCode_Success,
@@ -104,7 +113,7 @@ func (b *BackupContext) CreateBackup(ctx context.Context, request *backuppb.Crea
 		}
 		return asyncResp
 	} else {
-		task, err := b.executeCreateBackup(ctx, request, backup)
+		task, err := b.executeCreateBackup(ctx, request, backup, createCDCTaskPos)
 		resp.Data = task
 		if err != nil {
 			resp.Code = backuppb.ResponseCode_Fail
@@ -140,8 +149,9 @@ type collectionStruct struct {
 
 // parse collections to backup
 // For backward compatibility：
-//   1，parse dbCollections first,
-//   2，if dbCollections not set, use collectionNames
+//
+//	1，parse dbCollections first,
+//	2，if dbCollections not set, use collectionNames
 func (b *BackupContext) parseBackupCollections(request *backuppb.CreateBackupRequest) ([]collectionStruct, error) {
 	log.Debug("Request collection names",
 		zap.Strings("request_collection_names", request.GetCollectionNames()),
@@ -575,7 +585,7 @@ func (b *BackupContext) backupCollection(ctx context.Context, backupInfo *backup
 	return nil
 }
 
-func (b *BackupContext) executeCreateBackup(ctx context.Context, request *backuppb.CreateBackupRequest, backupInfo *backuppb.BackupInfo) (*backuppb.BackupInfo, error) {
+func (b *BackupContext) executeCreateBackup(ctx context.Context, request *backuppb.CreateBackupRequest, backupInfo *backuppb.BackupInfo, createCDCTaskPos bool) (*backuppb.BackupInfo, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -667,6 +677,17 @@ func (b *BackupContext) executeCreateBackup(ctx context.Context, request *backup
 	b.getStorageClient().Write(ctx, b.backupBucketName, FullMetaPath(b.backupRootPath, backupInfo.GetName()), output.FullMetaBytes)
 	b.getStorageClient().Write(ctx, b.backupBucketName, ChannelCPMetaPath(b.backupRootPath, backupInfo.GetName()), channelCPsBytes)
 
+	if createCDCTaskPos {
+		// Serialize the person struct into YAML format
+		log.Info("start to generate cdc task scripts")
+		err := generateCDCTaskScript(channelCPsBytes)
+		if err != nil {
+			backupInfo.StateCode = backuppb.BackupTaskStateCode_BACKUP_FAIL
+			backupInfo.ErrorMessage = err.Error()
+			return backupInfo, err
+		}
+	}
+
 	log.Info("finish executeCreateBackup",
 		zap.String("requestId", request.GetRequestId()),
 		zap.String("backupName", request.GetBackupName()),
@@ -674,6 +695,99 @@ func (b *BackupContext) executeCreateBackup(ctx context.Context, request *backup
 		zap.Bool("async", request.GetAsync()),
 		zap.String("backup meta", string(output.BackupMetaBytes)))
 	return backupInfo, nil
+}
+
+func generateCDCTaskScript(jsonData []byte) error {
+	data := make(map[string][]model.ChannelInfo)
+	err := json.Unmarshal(jsonData, &data)
+	if err != nil {
+		return err
+	}
+
+	requestPath := "./configs/cdc_target_instance.yaml"
+	requestContent, err := os.ReadFile(requestPath)
+	if err != nil {
+		return err
+	}
+	var createRequest request.CreateRequest
+	err = yaml.Unmarshal(requestContent, &createRequest)
+	if err != nil {
+		return err
+	}
+
+	t := time.Now()
+	fileName := fmt.Sprintf("%s_%d_%d_%d.sh", "./create_cdc_task", t.Hour(), t.Minute(), t.Second())
+	// Open the file in append mode.
+	file, err := os.OpenFile(fileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0777)
+	if err != nil {
+		return err
+	}
+
+	log.Info("Data written to ", zap.String("script_name", fileName))
+	_, err = io.WriteString(file, "#!/bin/bash\n")
+	if err != nil {
+		return err
+	}
+
+	for s, infos := range data {
+		c := createRequest
+		c.CollectionInfos = []model.CollectionInfo{
+			{
+				Name: s,
+			},
+		}
+		c.CollectionPositions = map[string][]model.ChannelInfo{
+			s: infos,
+		}
+		templateOutput(c, file)
+	}
+
+	// Close the file.
+	err = file.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var curlTemplate = `
+curl -X POST http://localhost:8444/cdc \
+-H "Content-Type: application/json" \
+-d '{
+  "request_type": "create",
+  "request_data": {{.Data}}
+}'
+`
+
+type D struct {
+	Data string
+}
+
+func templateOutput(createRequest request.CreateRequest, file *os.File) {
+	createRequestData, err := json.MarshalIndent(createRequest, "", "  ")
+	if err != nil {
+		fmt.Println("JSON marshaling failed:", err)
+		return
+	}
+	createStr := string(createRequestData)
+
+	tmpl, err := template.New("myTemplate").Parse(curlTemplate)
+	if err != nil {
+		fmt.Println("Failed to parse template:", err)
+		return
+	}
+	tmpl = tmpl.Funcs(template.FuncMap{
+		"unescape": html.UnescapeString,
+	})
+
+	err = tmpl.Execute(file, D{
+		Data: createStr,
+	})
+	if err != nil {
+		fmt.Println("Failed to render template:", err)
+		return
+	}
 }
 
 func (b *BackupContext) copySegments(ctx context.Context, segments []*backuppb.SegmentBackupInfo, dstPath string) error {

@@ -8,6 +8,7 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/spf13/cobra"
+
 	"github.com/zilliztech/milvus-backup/core"
 	"github.com/zilliztech/milvus-backup/core/paramtable"
 	"github.com/zilliztech/milvus-backup/core/proto/backuppb"
@@ -15,11 +16,12 @@ import (
 )
 
 var (
-	backupName      string
-	collectionNames string
-	databases       string
-	dbCollections   string
-	force           bool
+	backupName       string
+	collectionNames  string
+	databases        string
+	dbCollections    string
+	createCDCTaskPos bool
+	force            bool
 )
 
 var createBackupCmd = &cobra.Command{
@@ -61,7 +63,7 @@ var createBackupCmd = &cobra.Command{
 			CollectionNames: collectionNameArr,
 			DbCollections:   utils.WrapDBCollections(dbCollections),
 			Force:           force,
-		})
+		}, createCDCTaskPos)
 
 		fmt.Println(resp.GetMsg())
 		duration := time.Now().Unix() - start
@@ -75,6 +77,7 @@ func init() {
 	createBackupCmd.Flags().StringVarP(&databases, "databases", "d", "", "databases to backup")
 	createBackupCmd.Flags().StringVarP(&dbCollections, "database_collections", "a", "", "databases and collections to backup, json format: {\"db1\":[\"c1\", \"c2\"],\"db2\":[]}")
 	createBackupCmd.Flags().BoolVarP(&force, "force", "f", false, "force backup skip flush, should make sure data has been stored into disk when using it")
+	createBackupCmd.Flags().BoolVarP(&createCDCTaskPos, "createCDCTaskPos", "t", false, "generate a yaml file as cdc task position inputs")
 
 	rootCmd.AddCommand(createBackupCmd)
 }

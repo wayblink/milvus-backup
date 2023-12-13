@@ -1,6 +1,6 @@
 # Configures the system log output.
 log:
-  level: info # Only supports debug, info, warn, error, panic, or fatal. Default 'info'.
+  level: debug # Only supports debug, info, warn, error, panic, or fatal. Default 'info'.
   console: true # whether print log to console
   file:
     rootPath: "logs/backup.log"
@@ -8,38 +8,53 @@ log:
 http:
   simpleResponse: true
 
-# milvus proxy address, compatible to milvus.yaml
+
+#milvus:
+#  address: https://in01-b7d513aa1453f22.aws-us-west-2.vectordb-uat3.zillizcloud.com
+#  port: 19542
+#  authorizationEnabled: true
+#  # tls mode values [0, 1, 2]
+#  # 0 is close, 1 is one-way authentication, 2 is two-way authentication.
+#  tlsMode: 0
+#  user: "root"
+#  password: "xxxxxx"
+
 milvus:
-  address: localhost
+  address: https://in01-b96c7b1ed4238f3.aws-us-west-2.vectordb-uat3.zillizcloud.com
   port: 19530
-  authorizationEnabled: false
+  authorizationEnabled: true
   # tls mode values [0, 1, 2]
   # 0 is close, 1 is one-way authentication, 2 is two-way authentication.
   tlsMode: 0
   user: "root"
-  password: "Milvus"
+  password: "xxxxxx"
 
 # Related configuration of minio, which is responsible for data persistence for Milvus.
 minio:
-  cloudProvider: "minio" # remote cloud storage provider: s3, gcp, aliyun, azure
-  
-  address: localhost # Address of MinIO/S3
-  port: 9000   # Port of MinIO/S3
-  accessKeyID: minioadmin  # accessKeyID of MinIO/S3
-  secretAccessKey: minioadmin # MinIO/S3 encryption string
-  useSSL: false # Access to MinIO/S3 with SSL
+  cloudProvider: "aws" # remote cloud storage provider: s3, gcp, aliyun, azure
+
+  address: s3.us-west-2.amazonaws.com # Address of MinIO/S3
+  port: 443   # Port of MinIO/S3
+  accessKeyID: AKIAUO3PULYA55SCQOKJ  # accessKeyID of MinIO/S3
+  secretAccessKey: xxxxx # MinIO/S3 encryption string
+  useSSL: true # Access to MinIO/S3 with SSL
   useIAM: false
   iamEndpoint: ""
-  
-  bucketName: "milvus-bucket" # Milvus Bucket name in MinIO/S3, make it the same as your milvus instance
-  rootPath: "file" # Milvus storage root path in MinIO/S3, make it the same as your milvus instance
 
-  # only for azure
-  backupAccessKeyID: minioadmin  # accessKeyID of MinIO/S3
-  backupSecretAccessKey: minioadmin # MinIO/S3 encryption string
-  
-  backupBucketName: "milvus-bucket" # Bucket name to store backup data. Backup data will store to backupBucketName/backupRootPath
-  backupRootPath: "backup" # Rootpath to store backup data. Backup data will store to backupBucketName/backupRootPath
+  bucketName: "zilliz-aws-us-west-2-wdxlw6gkyo" # Milvus Bucket name in MinIO/S3, make it the same as your milvus instance
+  rootPath: "b7d513aa1453f22" # Milvus storage root path in MinIO/S3, make it the same as your milvus instance
+
+  backupAccessKeyID: AKIAUO3PULYA55SCQOKJ  # accessKeyID of MinIO/S3
+  backupSecretAccessKey: xxxx # MinIO/S3 encryption string
+
+  backupBucketName: "backup-test-tmp" # Bucket name to store backup data. Backup data will store to backupBucketName/backupRootPath
+  backupRootPath: "b7d513aa1453f22" # Rootpath to store backup data. Backup data will store to backupBucketName/backupRootPath
+
+  # refactor split backup and restore configs into different group
+  backupCloudProvider: "aws" # remote cloud storage provider: s3, gcp, aliyun, azure
+  backupAddress: s3.us-west-2.amazonaws.com # Address of MinIO/S3
+  backupPort: 443
+  backupUseSSL: true
 
 backup:
   maxSegmentGroupSize: 2G

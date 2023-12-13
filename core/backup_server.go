@@ -5,12 +5,13 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"github.com/zilliztech/milvus-backup/core/paramtable"
-	"github.com/zilliztech/milvus-backup/core/proto/backuppb"
-	"github.com/zilliztech/milvus-backup/internal/log"
 	"go.uber.org/zap"
 	"net/http"
 	"net/http/pprof"
+
+	"github.com/zilliztech/milvus-backup/core/paramtable"
+	"github.com/zilliztech/milvus-backup/core/proto/backuppb"
+	"github.com/zilliztech/milvus-backup/internal/log"
 )
 
 const (
@@ -143,7 +144,7 @@ func (h *Handlers) handleCreateBackup(c *gin.Context) (interface{}, error) {
 		return nil, nil
 	}
 	requestBody.RequestId = c.GetHeader("request_id")
-	resp := h.backupContext.CreateBackup(h.backupContext.ctx, &requestBody)
+	resp := h.backupContext.CreateBackup(h.backupContext.ctx, &requestBody, false)
 	if h.backupContext.params.HTTPCfg.SimpleResponse {
 		resp = SimpleBackupResponse(resp)
 	}

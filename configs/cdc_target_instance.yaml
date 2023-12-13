@@ -1,0 +1,10 @@
+milvus_connect_param:
+  host: https://in01-b96c7b1ed4238f3.aws-us-west-2.vectordb-uat3.zillizcloud.com
+  port: 19530
+  username: root
+  password: xxx
+  enable_tls: true
+  connect_timeout: 10
+#buffer_config:
+#  period: 10
+#  size: 10
