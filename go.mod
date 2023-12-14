@@ -121,7 +121,7 @@ require (
 
 replace (
 	github.com/milvus-io/milvus-proto/go-api/v2 => github.com/wayblink/milvus-proto/go-api/v2 v2.0.0-20231129093819-30d8c2ff887e
-	github.com/milvus-io/milvus-sdk-go/v2 => github.com/jaime0815/milvus-sdk-go/v2 v2.0.0-20231213034151-2967784a6b40
+	github.com/milvus-io/milvus-sdk-go/v2 => github.com/jaime0815/milvus-sdk-go/v2 v2.0.0-20231214062354-923908b9d98c
 	github.com/zilliztech/milvus-cdc/core => github.com/SimFG/milvus-cdc/core v0.0.0-20231212074935-25899051a760
 	github.com/zilliztech/milvus-cdc/server => github.com/SimFG/milvus-cdc/server v0.0.0-20231212074935-25899051a760
 )
