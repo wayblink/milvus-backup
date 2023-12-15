@@ -232,7 +232,7 @@ func (b *BackupContext) parseBackupCollections(request *backuppb.CreateBackupReq
 	return toBackupCollections, nil
 }
 
-func (b *BackupContext) backupCollection(ctx context.Context, backupInfo *backuppb.BackupInfo, collection collectionStruct, force bool) error {
+func (b *BackupContext) backupCollectionPrepare(ctx context.Context, backupInfo *backuppb.BackupInfo, collection collectionStruct, force bool) error {
 	log.Info("start backup collection", zap.String("db", collection.db), zap.String("collection", collection.collectionName))
 	// list collection result is not complete
 	completeCollection, err := b.getMilvusClient().DescribeCollection(b.ctx, collection.db, collection.collectionName)
@@ -531,10 +531,6 @@ func (b *BackupContext) backupCollection(ctx context.Context, backupInfo *backup
 		zap.String("collectionName", collectionBackup.GetCollectionName()),
 		zap.Int("partitionNum", len(partitionBackupInfos)))
 
-	log.Info("Begin copy data",
-		zap.String("collectionName", collectionBackup.GetCollectionName()),
-		zap.Int("segmentNum", len(segmentBackupInfos)))
-
 	var collectionBackupSize int64 = 0
 	for _, part := range partitionBackupInfos {
 		collectionBackupSize += part.GetSize()
@@ -571,17 +567,42 @@ func (b *BackupContext) backupCollection(ctx context.Context, backupInfo *backup
 		}
 	}
 
+	collectionBackup.Size = collectionBackupSize
+	return nil
+}
+
+func (b *BackupContext) backupCollectionExecute(ctx context.Context, backupInfo *backuppb.BackupInfo, collection collectionStruct, force bool) error {
+	var collectionBackup *backuppb.CollectionBackupInfo
+	for _, coll := range backupInfo.GetCollectionBackups() {
+		if coll.GetCollectionName() == collection.collectionName && coll.DbName == collection.db {
+			collectionBackup = coll
+			break
+		}
+	}
+
+	var segmentBackupInfos []*backuppb.SegmentBackupInfo
+	for _, part := range collectionBackup.GetPartitionBackups() {
+		segmentBackupInfos = append(segmentBackupInfos, part.GetSegmentBackups()...)
+	}
+
+	log.Info("Begin copy data",
+		zap.String("collectionName", collectionBackup.GetCollectionName()),
+		zap.Int("segmentNum", len(segmentBackupInfos)))
+
 	sort.SliceStable(segmentBackupInfos, func(i, j int) bool {
 		return segmentBackupInfos[i].Size < segmentBackupInfos[j].Size
 	})
-	err = b.copySegments(ctx, segmentBackupInfos, BackupBinlogDirPath(b.backupRootPath, backupInfo.GetName()))
+	err := b.copySegments(ctx, segmentBackupInfos, BackupBinlogDirPath(b.backupRootPath, backupInfo.GetName()))
 	if err != nil {
 		return err
 	}
 	b.refreshBackupCache(backupInfo)
 
-	collectionBackup.Size = collectionBackupSize
 	collectionBackup.EndTime = time.Now().Unix()
+
+	log.Info("Finish copy data",
+		zap.String("collectionName", collectionBackup.GetCollectionName()),
+		zap.Int("segmentNum", len(segmentBackupInfos)))
 	return nil
 }
 
@@ -620,7 +641,33 @@ func (b *BackupContext) executeCreateBackup(ctx context.Context, request *backup
 	for _, collection := range toBackupCollections {
 		collectionClone := collection
 		job := func(ctx context.Context) error {
-			err := b.backupCollection(ctx, backupInfo, collectionClone, request.GetForce())
+			err := b.backupCollectionPrepare(ctx, backupInfo, collectionClone, request.GetForce())
+			return err
+		}
+		wp.Submit(job)
+	}
+	wp.Done()
+	if err := wp.Wait(); err != nil {
+		backupInfo.StateCode = backuppb.BackupTaskStateCode_BACKUP_FAIL
+		backupInfo.ErrorMessage = err.Error()
+		return backupInfo, err
+	}
+
+	log.Info("!!!Finish flush all collections")
+	log.Info("!!!Finish flush all collections")
+	log.Info("!!!Finish flush all collections")
+
+	wp, err = common.NewWorkerPool(ctx, b.params.BackupCfg.BackupParallelism, RPS)
+	if err != nil {
+		backupInfo.StateCode = backuppb.BackupTaskStateCode_BACKUP_FAIL
+		backupInfo.ErrorMessage = err.Error()
+		return backupInfo, err
+	}
+	wp.Start()
+	for _, collection := range toBackupCollections {
+		collectionClone := collection
+		job := func(ctx context.Context) error {
+			err := b.backupCollectionExecute(ctx, backupInfo, collectionClone, request.GetForce())
 			return err
 		}
 		wp.Submit(job)
