@@ -256,6 +256,10 @@ message RestoreBackupRequest {
   bool metaOnly = 10;
   // if true restore index info
   bool restoreIndex = 11; 
+  // if true use autoindex when restore vector index
+  bool restoreAutoIndex = 12;
+  // if true skip create collection 
+  bool skipCreateCollection = 13;
 }
 
 message RestorePartitionTask {
@@ -285,6 +289,10 @@ message RestoreCollectionTask {
   bool metaOnly = 13;
   // if true restore index info
   bool restoreIndex = 14;
+  // if true use autoindex when restore vector index
+  bool restoreAutoIndex = 15;
+  // if true skip create collection 
+  bool skipCreateCollection = 16;
 }
 
 message RestoreBackupTask {
