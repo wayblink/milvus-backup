@@ -26,6 +26,8 @@ var (
 	restoreDatabaseCollections string
 	restoreMetaOnly            bool
 	restoreIndex               bool
+	restoreAutoIndex           bool
+	skipCreateCollection       bool
 )
 
 var restoreBackupCmd = &cobra.Command{
@@ -77,13 +79,15 @@ var restoreBackupCmd = &cobra.Command{
 			}
 		}
 		resp := backupContext.RestoreBackup(context, &backuppb.RestoreBackupRequest{
-			BackupName:        restoreBackupName,
-			CollectionNames:   collectionNameArr,
-			CollectionSuffix:  renameSuffix,
-			CollectionRenames: renameMap,
-			DbCollections:     utils.WrapDBCollections(restoreDatabaseCollections),
-			MetaOnly:          restoreMetaOnly,
-			RestoreIndex:      restoreIndex,
+			BackupName:           restoreBackupName,
+			CollectionNames:      collectionNameArr,
+			CollectionSuffix:     renameSuffix,
+			CollectionRenames:    renameMap,
+			DbCollections:        utils.WrapDBCollections(restoreDatabaseCollections),
+			MetaOnly:             restoreMetaOnly,
+			RestoreIndex:         restoreIndex,
+			RestoreAutoIndex:     restoreAutoIndex,
+			SkipCreateCollection: skipCreateCollection,
 		})
 
 		fmt.Println(resp.GetMsg())
@@ -102,6 +106,8 @@ func init() {
 
 	restoreBackupCmd.Flags().BoolVarP(&restoreMetaOnly, "meta_only", "", false, "if set true, will restore meta only")
 	restoreBackupCmd.Flags().BoolVarP(&restoreIndex, "restore_index", "", false, "if set true, will restore index")
+	restoreBackupCmd.Flags().BoolVarP(&restoreAutoIndex, "restore_auto_index", "", false, "if set true, replace vector index with autoindex")
+	restoreBackupCmd.Flags().BoolVarP(&skipCreateCollection, "skip_create_collection", "", false, "if set true, skip create collection")
 
 	rootCmd.AddCommand(restoreBackupCmd)
 }
