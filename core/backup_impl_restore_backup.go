@@ -461,9 +461,19 @@ func (b *BackupContext) executeRestoreCollectionTask(ctx context.Context, backup
 			var idx entity.Index
 			log.Info("wayblink", zap.String("indexType", index.GetIndexType()))
 			if _, ok := vectorFields[index.GetFieldName()]; ok && task.GetRestoreAutoIndex() {
+				log.Info("auto index")
 				idx = entity.NewGenericIndex(index.GetIndexName(), entity.AUTOINDEX, index.GetFieldName(), nil)
 			} else {
-				idx = entity.NewGenericIndex(index.GetIndexName(), entity.IndexType(index.GetIndexType()), index.GetFieldName(), index.GetParams())
+				log.Info("not auto index")
+				indexType := index.GetIndexType()
+				if indexType == "marisa-trie" {
+					indexType = "Trie"
+				}
+				params := index.GetParams()
+				if params["index_type"] == "marisa-trie" {
+					params["index_type"] = "Trie"
+				}
+				idx = entity.NewGenericIndex(index.GetIndexName(), entity.IndexType(indexType), index.GetFieldName(), index.GetParams())
 			}
 			err := b.getMilvusClient().CreateIndex(ctx, targetDBName, targetCollectionName, index.GetFieldName(), idx, true)
 			if err != nil {
