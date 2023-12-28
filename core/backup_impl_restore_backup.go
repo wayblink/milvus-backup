@@ -458,11 +458,22 @@ func (b *BackupContext) executeRestoreCollectionTask(ctx context.Context, backup
 	if task.GetRestoreIndex() {
 		indexes := task.GetCollBackup().GetIndexInfos()
 		for _, index := range indexes {
+			err := b.milvusClient.DropIndex(ctx, targetDBName, targetCollectionName, index.GetIndexName())
+			if err != nil {
+				log.Warn("Fail to drop index",
+					zap.String("indexName", index.GetIndexName()),
+					zap.String("fieldName", index.FieldName),
+					zap.Error(err))
+			}
 			var idx entity.Index
-			log.Info("wayblink", zap.String("indexType", index.GetIndexType()))
+			log.Info("source index type", zap.String("indexType", index.GetIndexType()))
 			if _, ok := vectorFields[index.GetFieldName()]; ok && task.GetRestoreAutoIndex() {
-				log.Info("auto index")
-				idx = entity.NewGenericIndex(index.GetIndexName(), entity.AUTOINDEX, index.GetFieldName(), nil)
+				log.Info("use auto index", zap.Any("params", index.GetParams()))
+				params := make(map[string]string, 0)
+				// auto index only support index_type and metric_type in params
+				params["index_type"] = "AUTOINDEX"
+				params["metric_type"] = index.GetParams()["metric_type"]
+				idx = entity.NewGenericIndex(index.GetIndexName(), entity.AUTOINDEX, index.GetFieldName(), params)
 			} else {
 				log.Info("not auto index")
 				indexType := index.GetIndexType()
@@ -475,7 +486,7 @@ func (b *BackupContext) executeRestoreCollectionTask(ctx context.Context, backup
 				}
 				idx = entity.NewGenericIndex(index.GetIndexName(), entity.IndexType(indexType), index.GetFieldName(), index.GetParams())
 			}
-			err := b.getMilvusClient().CreateIndex(ctx, targetDBName, targetCollectionName, index.GetFieldName(), idx, true)
+			err = b.getMilvusClient().CreateIndex(ctx, targetDBName, targetCollectionName, index.GetFieldName(), idx, true)
 			if err != nil {
 				log.Warn("Fail to restore index", zap.Error(err))
 				return task, err
