@@ -449,6 +449,37 @@ func (b *BackupContext) executeRestoreCollectionTask(ctx context.Context, backup
 			zap.Bool("hasPartitionKey", hasPartitionKey))
 	}
 
+	for _, field := range task.CollBackup.Schema.Fields {
+		fieldIndexs, err := b.getMilvusClient().DescribeIndex(b.ctx, targetDBName, targetCollectionName, field.Name)
+		if err != nil {
+			if strings.Contains(err.Error(), "index not found") ||
+				strings.HasPrefix(err.Error(), "index doesn't exist") {
+				// todo
+				log.Info("field has no index",
+					zap.String("collection_name", targetCollectionName),
+					zap.String("field_name", field.Name))
+				continue
+			} else {
+				log.Error("fail in DescribeIndex", zap.Error(err))
+				return task, err
+			}
+		}
+		for _, fieldIndex := range fieldIndexs {
+			err = b.milvusClient.DropIndex(ctx, targetDBName, targetCollectionName, fieldIndex.Name())
+			if err != nil {
+				log.Warn("Fail to drop index",
+					zap.String("db", targetDBName),
+					zap.String("collection", targetCollectionName),
+					zap.Error(err))
+				return task, err
+			}
+			log.Info("drop index",
+				zap.String("collection_name", targetCollectionName),
+				zap.String("field_name", field.Name),
+				zap.String("index_name", fieldIndex.Name()))
+		}
+	}
+
 	vectorFields := make(map[string]bool, 0)
 	for _, field := range collectionSchema.Fields {
 		if strings.HasSuffix(strings.ToLower(field.DataType.Name()), "vector") {
@@ -458,17 +489,13 @@ func (b *BackupContext) executeRestoreCollectionTask(ctx context.Context, backup
 	if task.GetRestoreIndex() {
 		indexes := task.GetCollBackup().GetIndexInfos()
 		for _, index := range indexes {
-			err := b.milvusClient.DropIndex(ctx, targetDBName, targetCollectionName, index.GetIndexName())
-			if err != nil {
-				log.Warn("Fail to drop index",
-					zap.String("indexName", index.GetIndexName()),
-					zap.String("fieldName", index.FieldName),
-					zap.Error(err))
-			}
 			var idx entity.Index
-			log.Info("source index type", zap.String("indexType", index.GetIndexType()))
+			log.Info("source index",
+				zap.String("indexName", index.GetIndexName()),
+				zap.String("indexType", index.GetIndexType()),
+				zap.Any("params", index.GetParams()))
 			if _, ok := vectorFields[index.GetFieldName()]; ok && task.GetRestoreAutoIndex() {
-				log.Info("use auto index", zap.Any("params", index.GetParams()))
+				log.Info("use auto index")
 				params := make(map[string]string, 0)
 				// auto index only support index_type and metric_type in params
 				params["index_type"] = "AUTOINDEX"
@@ -486,7 +513,7 @@ func (b *BackupContext) executeRestoreCollectionTask(ctx context.Context, backup
 				}
 				idx = entity.NewGenericIndex(index.GetIndexName(), entity.IndexType(indexType), index.GetFieldName(), index.GetParams())
 			}
-			err = b.getMilvusClient().CreateIndex(ctx, targetDBName, targetCollectionName, index.GetFieldName(), idx, true)
+			err := b.getMilvusClient().CreateIndex(ctx, targetDBName, targetCollectionName, index.GetFieldName(), idx, true)
 			if err != nil {
 				log.Warn("Fail to restore index", zap.Error(err))
 				return task, err
