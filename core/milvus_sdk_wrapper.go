@@ -170,3 +170,13 @@ func (m *MilvusClient) CreateIndex(ctx context.Context, db, collName string, fie
 	}
 	return m.client.CreateIndex(ctx, collName, fieldName, idx, async, opts...)
 }
+
+func (m *MilvusClient) DropIndex(ctx context.Context, db, collName string, indexName string, opts ...gomilvus.IndexOption) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	err := m.client.UsingDatabase(ctx, db)
+	if err != nil {
+		return err
+	}
+	return m.client.DropIndex(ctx, collName, "", gomilvus.WithIndexName(indexName))
+}
