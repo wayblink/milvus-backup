@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-func TestTs(t *testing.T) {
-	ts := 443727974068387848
+func TestTs(t *testing.T
 	time, logical := ParseTS(uint64(ts))
 	println(time.Unix())
 	println(logical)

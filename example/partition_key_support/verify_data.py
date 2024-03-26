@@ -10,7 +10,7 @@ from pymilvus import (
 
 fmt = "\n=== {:30} ===\n"
 search_latency_fmt = "search latency = {:.4f}s"
-num_entities, dim = 3000, 8
+num_entities, dim = 3000, 128
 rng = np.random.default_rng(seed=19530)
 entities = [
     # provide the pk field because `auto_id` is set to False
@@ -28,7 +28,7 @@ if host == None:
 print(fmt.format(f"Milvus host: {host}"))
 connections.connect("default", host=host, port="19530")
 
-recover_collections = ["hello_milvus_pk_recover"]
+recover_collections = ["hello_milvus_ck"]
 
 for recover_collection_name in recover_collections:
     has = utility.has_collection(recover_collection_name)
@@ -43,14 +43,14 @@ for recover_collection_name in recover_collections:
     # 4. create index
     # We are going to create an IVF_FLAT index for hello_milvus_recover collection.
     # create_index() can only be applied to `FloatVector` and `BinaryVector` fields.
-    print(fmt.format("Start Creating index IVF_FLAT"))
-    index = {
-        "index_type": "IVF_FLAT",
-        "metric_type": "L2",
-        "params": {"nlist": 128},
-    }
-
-    recover_collection.create_index("embeddings", index)
+    # print(fmt.format("Start Creating index IVF_FLAT"))
+    # index = {
+    #     "index_type": "IVF_FLAT",
+    #     "metric_type": "L2",
+    #     "params": {"nlist": 128},
+    # }
+    # 
+    # recover_collection.create_index("embeddings", index)
 
     ################################################################################
     # 5. search, query, and hybrid search
@@ -74,7 +74,7 @@ for recover_collection_name in recover_collections:
     }
 
     start_time = time.time()
-    result = recover_collection.search(vectors_to_search, "embeddings", search_params, limit=3, output_fields=["random"])
+    result = recover_collection.search(vectors_to_search, "embeddings", search_params, expr="key==123", limit=3, output_fields=["random"])
     end_time = time.time()
 
     for hits in result:
@@ -84,27 +84,27 @@ for recover_collection_name in recover_collections:
 
     # -----------------------------------------------------------------------------
     # query based on scalar filtering(boolean, int, etc.)
-    print(fmt.format("Start querying with `random > 0.5`"))
-
-    start_time = time.time()
-    result = recover_collection.query(expr="random > 0.5", output_fields=["random", "embeddings"])
-    end_time = time.time()
-
-    print(f"query result:\n-{result[0]}")
-    print(search_latency_fmt.format(end_time - start_time))
-
-    # -----------------------------------------------------------------------------
-    # hybrid search
-    print(fmt.format("Start hybrid searching with `random > 0.5`"))
-
-    start_time = time.time()
-    result = recover_collection.search(vectors_to_search, "embeddings", search_params, limit=3, expr="random > 0.5", output_fields=["random"])
-    end_time = time.time()
-
-    for hits in result:
-        for hit in hits:
-            print(f"hit: {hit}, random field: {hit.entity.get('random')}")
-    print(search_latency_fmt.format(end_time - start_time))
+    # print(fmt.format("Start querying with `random > 0.5`"))
+    # 
+    # start_time = time.time()
+    # result = recover_collection.query(expr="random > 0.5", output_fields=["random", "embeddings"])
+    # end_time = time.time()
+    # 
+    # print(f"query result:\n-{result[0]}")
+    # print(search_latency_fmt.format(end_time - start_time))
+    # 
+    # # -----------------------------------------------------------------------------
+    # # hybrid search
+    # print(fmt.format("Start hybrid searching with `random > 0.5`"))
+    # 
+    # start_time = time.time()
+    # result = recover_collection.search(vectors_to_search, "embeddings", search_params, limit=3, expr="random > 0.5", output_fields=["random"])
+    # end_time = time.time()
+    # 
+    # for hits in result:
+    #     for hit in hits:
+    #         print(f"hit: {hit}, random field: {hit.entity.get('random')}")
+    # print(search_latency_fmt.format(end_time - start_time))
 
     ###############################################################################
     # 7. drop collection

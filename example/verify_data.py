@@ -28,7 +28,8 @@ if host == None:
 print(fmt.format(f"Milvus host: {host}"))
 connections.connect("default", host=host, port="19530")
 
-recover_collections = ["hello_milvus_recover", "hello_milvus2_recover"]
+# recover_collections = ["hello_milvus_recover", "hello_milvus2_recover"]
+recover_collections = ["hello_milvus_ck"]
 
 for recover_collection_name in recover_collections:
     has = utility.has_collection(recover_collection_name)
@@ -43,14 +44,14 @@ for recover_collection_name in recover_collections:
     # 4. create index
     # We are going to create an IVF_FLAT index for hello_milvus_recover collection.
     # create_index() can only be applied to `FloatVector` and `BinaryVector` fields.
-    print(fmt.format("Start Creating index IVF_FLAT"))
-    index = {
-        "index_type": "IVF_FLAT",
-        "metric_type": "L2",
-        "params": {"nlist": 128},
-    }
-
-    recover_collection.create_index("embeddings", index)
+    # print(fmt.format("Start Creating index IVF_FLAT"))
+    # index = {
+    #     "index_type": "IVF_FLAT",
+    #     "metric_type": "L2",
+    #     "params": {"nlist": 128},
+    # }
+    # 
+    # recover_collection.create_index("embeddings", index)
 
     ################################################################################
     # 5. search, query, and hybrid search
@@ -74,7 +75,7 @@ for recover_collection_name in recover_collections:
     }
 
     start_time = time.time()
-    result = recover_collection.search(vectors_to_search, "embeddings", search_params, limit=3, output_fields=["random"])
+    result = recover_collection.search(vectors_to_search, "embeddings", search_params, expr="key=123", limit=3, output_fields=["random"])
     end_time = time.time()
 
     for hits in result:

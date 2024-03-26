@@ -20,7 +20,7 @@ from pymilvus import (
 )
 
 fmt = "\n=== {:30} ===\n"
-dim = 8
+dim = 128
 
 print(fmt.format("start connecting to Milvus"))
 host = os.environ.get('MILVUS_HOST')
@@ -34,15 +34,17 @@ print(f"Does collection hello_milvus exist in Milvus: {has}")
 
 default_fields = [
     FieldSchema(name="count", dtype=DataType.INT64, is_primary=True),
-    FieldSchema(name="key", dtype=DataType.INT64),
+    FieldSchema(name="key", dtype=DataType.INT16, is_clustering_key=True),
     FieldSchema(name="random", dtype=DataType.DOUBLE),
     FieldSchema(name="var", dtype=DataType.VARCHAR, max_length=10000, is_primary=False),
     FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=dim)
 ]
-default_schema = CollectionSchema(fields=default_fields, description="test partition-key collection", partition_key_field="key")
-hello_milvus = Collection(name="hello_milvus_pk", schema=default_schema, shard_num=1, num_partitions=20)
+default_schema = CollectionSchema(fields=default_fields, description="test clustering-key collection")
+hello_milvus = Collection(name="hello_milvus_ck", schema=default_schema, shard_num=1)
 
-nb = 20
+# hello_milvus = Collection(name="hello_milvus_ck5")
+
+nb = 1000
 
 rng = np.random.default_rng(seed=19530)
 random_data = rng.random(nb).tolist()
@@ -83,3 +85,7 @@ index = {
 }
 
 hello_milvus.create_index("embeddings", index)
+
+# hello_milvus.compact()
+
+

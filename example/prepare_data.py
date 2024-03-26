@@ -18,7 +18,7 @@ from pymilvus import (
 
 fmt = "\n=== {:30} ===\n"
 search_latency_fmt = "search latency = {:.4f}s"
-num_entities, dim = 3000, 8
+num_entities, dim = 3000, 1024
 
 #################################################################################
 # 1. connect to Milvus
@@ -53,7 +53,7 @@ print(f"Does collection hello_milvus exist in Milvus: {has}")
 # |3|"embeddings"| FloatVector|     dim=8        |  "float vector with dim 8"   |
 # +-+------------+------------+------------------+------------------------------+
 fields = [
-    FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=False),
+    FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=True),
     FieldSchema(name="random", dtype=DataType.DOUBLE),
     FieldSchema(name="var", dtype=DataType.VARCHAR, max_length=65535),
     FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=dim)
@@ -77,46 +77,49 @@ print(fmt.format("Start inserting entities"))
 rng = np.random.default_rng(seed=19530)
 entities = [
     # provide the pk field because `auto_id` is set to False
-    [i for i in range(num_entities)],
+    # [i for i in range(num_entities)],
     rng.random(num_entities).tolist(),  # field random, only supports list
     [str(i) for i in range(num_entities)],
     rng.random((num_entities, dim)),    # field embeddings, supports numpy.ndarray and list
 ]
 
 insert_result = hello_milvus.insert(entities)
-hello_milvus.flush()
+# hello_milvus.flush()
 print(f"Number of entities in hello_milvus: {hello_milvus.num_entities}")  # check the num_entites
 
 # create another collection
-fields2 = [
-    FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=True),
-    FieldSchema(name="random", dtype=DataType.DOUBLE),
-    FieldSchema(name="var", dtype=DataType.VARCHAR, max_length=65535),
-    FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=dim)
-]
+# fields2 = [
+#     FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=True),
+#     FieldSchema(name="random", dtype=DataType.DOUBLE),
+#     FieldSchema(name="var", dtype=DataType.VARCHAR, max_length=65535),
+#     FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=dim)
+# ]
+# 
+# schema2 = CollectionSchema(fields2, "hello_milvus2")
+# 
+# print(fmt.format("Create collection `hello_milvus2`"))
+# hello_milvus2 = Collection("hello_milvus2", schema2, consistency_level="Strong")
+# 
+# entities2 = [
+#     rng.random(num_entities).tolist(),  # field random, only supports list
+#     [str(i) for i in range(num_entities)],
+#     rng.random((num_entities, dim)),    # field embeddings, supports numpy.ndarray and list
+# ]
 
-schema2 = CollectionSchema(fields2, "hello_milvus2")
+# insert_result2 = hello_milvus2.insert(entities2)
+# hello_milvus2.flush()
+# insert_result2 = hello_milvus2.insert(entities2)
+# hello_milvus2.flush()
 
-print(fmt.format("Create collection `hello_milvus2`"))
-hello_milvus2 = Collection("hello_milvus2", schema2, consistency_level="Strong")
-
-entities2 = [
-    rng.random(num_entities).tolist(),  # field random, only supports list
-    [str(i) for i in range(num_entities)],
-    rng.random((num_entities, dim)),    # field embeddings, supports numpy.ndarray and list
-]
-
-insert_result2 = hello_milvus2.insert(entities2)
-hello_milvus2.flush()
-insert_result2 = hello_milvus2.insert(entities2)
-hello_milvus2.flush()
-
-# index_params = {"index_type": "IVF_FLAT", "params": {"nlist": 128}, "metric_type": "L2"}
+index_params = {"index_type": "IVF_FLAT", "params": {"nlist": 128}, "metric_type": "L2"}
+hello_milvus.create_index("embeddings", index_params)
+# index_params = {"index_type": "IVF_FLAT", "params": {"nlist": 128}, "metric_type": "IP"}
+# hello_milvus.create_index("embeddings", index_params)
 # hello_milvus.create_index("embeddings", index_params)
 # hello_milvus2.create_index(field_name="var",index_name="scalar_index")
 
 # index_params2 = {"index_type": "Trie"}
 # hello_milvus2.create_index("var", index_params2)
 
-print(f"Number of entities in hello_milvus2: {hello_milvus2.num_entities}")  # check the num_entites
+# print(f"Number of entities in hello_milvus2: {hello_milvus2.num_entities}")  # check the num_entites
 
