@@ -272,6 +272,10 @@ message RestoreBackupRequest {
   bool dropExistIndex = 14;
   // if true, will skip collection, use when collection exist, restore index or data
   bool skipCreateCollection = 15;
+  // if not null, will use data in this path to restore
+  string overrideDataPath = 16;
+  // if not 0, will use this partitionKeyNum when restore a partition Key collection
+  int32 overridePartitionKeyNum = 17;
 }
 
 message RestorePartitionTask {
@@ -309,6 +313,10 @@ message RestoreCollectionTask {
   bool dropExistIndex = 17;
   // if true will skip create collections
   bool skipCreateCollection = 18;
+  // if not null, will use data in this path to restore
+  string overrideDataPath = 19;
+  // if not 0, will use this partitionKeyNum when restore a partition Key collection
+  int32 overridePartitionKeyNum = 20;
 }
 
 message RestoreBackupTask {

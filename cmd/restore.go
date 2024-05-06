@@ -18,18 +18,20 @@ import (
 )
 
 var (
-	restoreBackupName           string
-	restoreCollectionNames      string
-	renameSuffix                string
-	renameCollectionNames       string
-	restoreDatabases            string
-	restoreDatabaseCollections  string
-	restoreMetaOnly             bool
-	restoreRestoreIndex         bool
-	restoreUseAutoIndex         bool
-	restoreDropExistCollection  bool
-	restoreDropExistIndex       bool
-	restoreSkipCreateCollection bool
+	restoreBackupName              string
+	restoreCollectionNames         string
+	renameSuffix                   string
+	renameCollectionNames          string
+	restoreDatabases               string
+	restoreDatabaseCollections     string
+	restoreMetaOnly                bool
+	restoreRestoreIndex            bool
+	restoreUseAutoIndex            bool
+	restoreDropExistCollection     bool
+	restoreDropExistIndex          bool
+	restoreSkipCreateCollection    bool
+	restoreOverrideDataPath        string
+	restoreOverridePartitionKeyNum int32
 )
 
 var restoreBackupCmd = &cobra.Command{
@@ -81,17 +83,19 @@ var restoreBackupCmd = &cobra.Command{
 			}
 		}
 		resp := backupContext.RestoreBackup(context, &backuppb.RestoreBackupRequest{
-			BackupName:           restoreBackupName,
-			CollectionNames:      collectionNameArr,
-			CollectionSuffix:     renameSuffix,
-			CollectionRenames:    renameMap,
-			DbCollections:        utils.WrapDBCollections(restoreDatabaseCollections),
-			MetaOnly:             restoreMetaOnly,
-			RestoreIndex:         restoreRestoreIndex,
-			UseAutoIndex:         restoreUseAutoIndex,
-			DropExistCollection:  restoreDropExistIndex,
-			DropExistIndex:       restoreDropExistIndex,
-			SkipCreateCollection: restoreSkipCreateCollection,
+			BackupName:              restoreBackupName,
+			CollectionNames:         collectionNameArr,
+			CollectionSuffix:        renameSuffix,
+			CollectionRenames:       renameMap,
+			DbCollections:           utils.WrapDBCollections(restoreDatabaseCollections),
+			MetaOnly:                restoreMetaOnly,
+			RestoreIndex:            restoreRestoreIndex,
+			UseAutoIndex:            restoreUseAutoIndex,
+			DropExistCollection:     restoreDropExistIndex,
+			DropExistIndex:          restoreDropExistIndex,
+			SkipCreateCollection:    restoreSkipCreateCollection,
+			OverrideDataPath:        restoreOverrideDataPath,
+			OverridePartitionKeyNum: restoreOverridePartitionKeyNum,
 		})
 
 		fmt.Println(resp.GetMsg())
@@ -114,6 +118,8 @@ func init() {
 	restoreBackupCmd.Flags().BoolVarP(&restoreDropExistCollection, "drop_exist_collection", "", false, "if true, drop existing target collection before create")
 	restoreBackupCmd.Flags().BoolVarP(&restoreDropExistIndex, "drop_exist_index", "", false, "if true, drop existing index of target collection before create")
 	restoreBackupCmd.Flags().BoolVarP(&restoreSkipCreateCollection, "skip_create_collection", "", false, "if true, will skip collection, use when collection exist, restore index or data")
+	restoreBackupCmd.Flags().StringVarP(&restoreOverrideDataPath, "override_data_path", "", "", "if not null, will use data in this path to restore")
+	restoreBackupCmd.Flags().Int32VarP(&restoreOverridePartitionKeyNum, "override_pk_num", "", 0, "if not 0, will use this partitionKeyNum when restore a partition Key collection")
 
 	// won't print flags in character order
 	restoreBackupCmd.Flags().SortFlags = false
